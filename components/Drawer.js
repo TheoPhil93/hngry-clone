@@ -20,7 +20,7 @@ const Drawer = ({ menuOpen, toggleMenu, slideAnim }) => {
 const drawerStyles = StyleSheet.create({
   drawer: { position: 'absolute', top: 0, left: 0, width: 250, height: '100%', backgroundColor: '#222', padding: 20, zIndex: 10 },
   drawerText: { color: '#fff', fontSize: 18, marginBottom: 20 },
-  closeButton: { alignSelf: 'flex-end', marginBottom: 20 },
+  closeButton: { alignSelf: 'flex-end', marginTop: 20, marginBottom: 20 },
   overlay: { position: 'absolute', top: 0, left: 250, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0)', zIndex: 5 },
 });
 

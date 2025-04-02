@@ -7,8 +7,8 @@ import ProductList from './components/ProductList';
 import { categories } from './config/categories';
 import { iconMapping } from './config/iconMapping';
 import RecipeImportModal from './components/RecipeImportModal';
-
-
+import RecipeScraper from './components/RecipeScraper';
+import MengeModal from './components/MengeModal';
 
 
 
@@ -61,12 +61,14 @@ export default function App() {
   };
 
   const handleSaveMenge = (updatedItem) => {
+    console.log('Updated item:', updatedItem);
     setListe(prev =>
       prev.map(p => (p.id === updatedItem.id ? { ...p, ...updatedItem } : p))
     );
     setShowMengeModal(false);
   };
-
+  
+  
   const hinzufuegen = useCallback((name) => {
     if (name.trim() === '') return;
     const lowerName = name.toLowerCase();
@@ -85,11 +87,11 @@ export default function App() {
           name,
           gekauft: false,
           rubrik,
-          menge: 1,
+          menge: 1,         // Standardwert 1
           einheit: 'Stück'
         }
       ]);
-    }
+    }    
     setSuche('');
   }, [liste]);
 
@@ -187,17 +189,22 @@ export default function App() {
                       color="#f8b107"
                       style={styles.iconLeft}
                     />
-                    <Text style={styles.itemText}>{item} – 1 Stück</Text>
-                    <TouchableOpacity onPress={() => handleOpenMengeModal(item)}>
-                      <MaterialCommunityIcons
-                        name="plus-circle-outline"
-                        size={24}
-                        color="#f8b107"
-                        style={styles.iconRight}
-                      />
-                    </TouchableOpacity>
+                    <Text style={styles.itemText}>
+                      {typeof item === 'string' ? item : item.name} – {typeof item === 'string' ? '1' : item.menge} {typeof item === 'string' ? 'Stück' : item.einheit}
+                    </Text>
+                    {typeof item !== 'string' && (
+                      <TouchableOpacity onPress={() => handleOpenMengeModal(item)}>
+                        <MaterialCommunityIcons
+                          name="plus-circle-outline"
+                          size={24}
+                          color="#f8b107"
+                          style={styles.iconRight}
+                        />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
+              
               )}
               renderSectionHeader={({ section }) => (
                 <View style={styles.sectionHeaderContainer}>
@@ -243,13 +250,25 @@ export default function App() {
           <Text style={[styles.tabText, selectedTab === 'vorrat' && styles.tabTextActive]}>Vorrat</Text>
         </TouchableOpacity>
       </View>
+
+      
+      {/* Rendere MengeModal, falls aktiv */}
+      {showMengeModal && selectedItem && (
+        <MengeModal 
+          visible={showMengeModal}
+          onClose={handleCloseMengeModal}
+          onSave={handleSaveMenge}
+          item={selectedItem}
+        />
+      )}
+
       <RecipeImportModal
-  visible={recipeModalVisible}
-  onClose={() => setRecipeModalVisible(false)}
-  onImport={(ingredients) => {
-    setListe((prev) => [...prev, ...ingredients]);
-    setRecipeModalVisible(false);
-  }}
+          visible={recipeModalVisible}
+          onClose={() => setRecipeModalVisible(false)}
+          onImport={(ingredients) => {
+            setListe((prev) => [...prev, ...ingredients]);
+            setRecipeModalVisible(false);
+      }}
 />
     </View>
   );

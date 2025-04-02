@@ -1,0 +1,3 @@
+[submodule "chefkoch-scraper"]
+	path = chefkoch-scraper
+	url = https://github.com/TheoPhil93/chefkoch-scraper.git
