@@ -1,61 +1,55 @@
-
-import { SectionList, View } from 'react-native';
+// components/ProductList.js
+import React, { useCallback } from 'react';
+import { SectionList, View, Text } from 'react-native';
 import ProductItem from './ProductItem';
-import RecipeImportModal from './RecipeImportModal';
-import React, { useState } from 'react';
+// Importiere styles direkt aus der korrekten Datei im Root-Verzeichnis
+import { styles } from '../styles'; // '../' geht eine Ebene höher aus 'components' raus
 
+// Die ProductList ist jetzt nur noch für die Anzeige zuständig
+const ProductList = ({ sections, onTogglePurchased, iconMapping, onOpenMengeModal }) => {
 
+  // Optimierter renderSectionHeader mit useCallback
+  const renderSectionHeader = useCallback(({ section }) => (
+      <View style={styles.sectionHeaderContainer}>
+        <Text style={styles.sectionHeaderText}>{section.title}</Text>
+      </View>
+  ), []); // Keine Abhängigkeiten, da nur Styles verwendet werden
 
+  // Optimierter renderItem mit useCallback
+  // Stelle sicher, dass onTogglePurchased korrekt von App.js übergeben wird
+  const renderItem = useCallback(({ item }) => (
+    <ProductItem
+      item={item}
+      onTogglePurchased={onTogglePurchased} // Diese Prop muss von App.js kommen
+      iconMapping={iconMapping}
+      styles={styles}
+      onOpenMengeModal={() => onOpenMengeModal(item)}
+    />
+  ), [onTogglePurchased, iconMapping, onOpenMengeModal]); // Abhängigkeiten hinzufügen
 
+  // ItemSeparator mit useCallback
+  const renderSeparator = useCallback(() => <View style={styles.separator} />, []);
 
-const ProductList = ({ sections, toggleGekauft, iconMapping, styles, renderSectionHeader }) => {
-const handleDeleteProduct = (product) => { setProducts((prev) => prev.filter((p) => p.id !== product.id)); };
-const [recipeModalVisible, setRecipeModalVisible] = useState(false);
-
-const importRecipe = async (link) => {
-  const apiKey = b225b690d712481daffe2149c1aa5b13; 
-  const url = `https://api.spoonacular.com/recipes/extract?apiKey=${apiKey}&url=${encodeURIComponent(link)}`;
-
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (!data.extendedIngredients) {
-      alert('Keine Zutaten gefunden.');
-      return [];
-    }
-
-    // extrahiere Name + ID (optional: Menge)
-    return data.extendedIngredients.map((ing) => ({
-      id: ing.id?.toString() || ing.name + Math.random(),
-      name: ing.name,
-      amount: 1,
-    }));
-  } catch (err) {
-    console.error('Fehler beim Import:', err);
-    alert('Import fehlgeschlagen.');
-    return [];
-  }
-};
+  // Überprüfe, ob sections gültig ist, bevor SectionList gerendert wird
+  if (!sections || !Array.isArray(sections)) {
+     console.warn("ProductList sections prop is not a valid array:", sections);
+     return (
+         <View style={[styles.centered, {flex: 1}]}>
+             <Text style={{ color: styles.text.color }}>Lade Liste...</Text>
+         </View>
+     );
+   }
 
   return (
     <SectionList
       sections={sections}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <ProductItem 
-        item={item} 
-        toggleGekauft={toggleGekauft} 
-        iconMapping={iconMapping} 
-        styles={styles} />
-      )}
+      renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={() => <View style={styles.separator} />}
-      ListFooterComponent={() => <View style={styles.separator} />}
-      contentContainerStyle={{ paddingBottom: 100 }}
+      ItemSeparatorComponent={renderSeparator} 
+      stickySectionHeadersEnabled={false}
+      contentContainerStyle={{ paddingBottom: 80 }}
     />
-    
   );
 };
 

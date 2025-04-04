@@ -1,3 +1,4 @@
+// components/Header.js
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ export default function Header({ listName, toggleMenu, suche, setSuche, onOpenRe
           placeholderTextColor="#888"
           value={suche}
           onChangeText={setSuche}
+          clearButtonMode="while-editing" // Optional: Löschen-Button hinzufügen (iOS)
+          returnKeyType="search" // Optional: Tastatur-Button
         />
       </View>
     </View>
@@ -42,7 +45,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f8b107',
     paddingHorizontal: 16,
-    paddingTop: 45,
+    paddingTop: 45, // Ggf. an SafeAreaView anpassen
     paddingBottom: 10,
   },
   headerTitle: {
@@ -55,19 +58,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f8b107',
     paddingHorizontal: 15,
-    paddingVertical: 15,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20
+    paddingBottom: 15, // Angepasst
+    paddingTop: 5,    // Angepasst
+    // borderBottomLeftRadius: 20, // Entfernt für bündigen Abschluss
+    // borderBottomRightRadius: 20 // Entfernt
   },
   backIcon: {
-    marginRight: 8
+    marginRight: 10, // Mehr Abstand
+    padding: 5, // Klickbereich vergrößern
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#fff', // Heller für Kontrast
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    color: '#fff'
+    paddingHorizontal: 15,
+    paddingVertical: 10, // Angepasst
+    fontSize: 16, // Größer
+    color: '#000' // Dunkler Text
   }
 });

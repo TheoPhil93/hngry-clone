@@ -1,303 +1,146 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Animated, StyleSheet, SectionList } from 'react-native';
+// App.js
+import React, { useMemo } from 'react';
+// Stelle sicher, dass nur benötigte Komponenten importiert werden
+import { View, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useUIState } from './hooks/useUIState'; // Stellt sicher, dass diese Datei auch die vereinfachte Version ist
+import { useShoppingList } from './hooks/useShoppingList'; // Stellt sicher, dass addProduct nur Namen nimmt
+
+// Importiere Komponenten
 import Header from './components/Header';
 import Drawer from './components/Drawer';
 import ProductList from './components/ProductList';
+import SuggestionList from './components/SuggestionList';
+import MengeModal from './components/MengeModal';
+import RecipeImportModal from './components/RecipeImportModal';
+import BottomTabBar from './components/BottomTabBar';
+import UndoBanner from './components/UndoBanner';
+
+// Importiere Konfiguration und Styles
 import { categories } from './config/categories';
 import { iconMapping } from './config/iconMapping';
-import RecipeImportModal from './components/RecipeImportModal';
-import RecipeScraper from './components/RecipeScraper';
-import MengeModal from './components/MengeModal';
-
-
+import { styles, colors } from './styles'; // colors für Vorrat-Text importieren (optional)
 
 export default function App() {
-  const [suche, setSuche] = useState('');
-  const [liste, setListe] = useState([]);
-  const [listName, setListName] = useState('Meine Einkaufsliste');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [undoItem, setUndoItem] = useState(null);
-  const [showUndoBanner, setShowUndoBanner] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [showMengeModal, setShowMengeModal] = useState(false);
-  const [selectedTab, setSelectedTab] = useState('einkaufsliste'); // 'einkaufsliste' oder 'vorrat'
-  const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+  // Vereinfachte Destrukturierung aus useUIState (ohne Suggestion-Logik)
+  const {
+    suche, setSuche,
+    listName, menuOpen, toggleMenu, slideAnim,
+    selectedTab, setSelectedTab, recipeModalVisible, openRecipeModal,
+    closeRecipeModal, showMengeModal, selectedItemForModal,
+    openMengeModal, closeMengeModal,
+  } = useUIState('einkaufsliste');
 
+  // useShoppingList mit vereinfachtem addProduct
+  const {
+    liste, addProduct, togglePurchased, updateProduct, undoItem,
+    showUndoBanner, undoPurchase, sections,
+  } = useShoppingList([]);
 
-  const drawerWidth = 250;
-  const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
-
-  const importIngredients = (ingredients) => {
-    setListe((prev) => [...prev, ...ingredients]);
-    setRecipeModalVisible(false);
-  };
-  
-  
-  const toggleMenu = useCallback(() => {
-    if (menuOpen) {
-      Animated.timing(slideAnim, {
-        toValue: -drawerWidth,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setMenuOpen(false));
-    } else {
-      setMenuOpen(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [menuOpen, slideAnim]);
-
-  const handleOpenMengeModal = (item) => {
-    setSelectedItem(item);
-    setShowMengeModal(true);
-  };
-
-  const handleCloseMengeModal = () => {
-    setShowMengeModal(false);
-  };
-
-  const handleSaveMenge = (updatedItem) => {
-    console.log('Updated item:', updatedItem);
-    setListe(prev =>
-      prev.map(p => (p.id === updatedItem.id ? { ...p, ...updatedItem } : p))
-    );
-    setShowMengeModal(false);
-  };
-  
-  
-  const hinzufuegen = useCallback((name) => {
-    if (name.trim() === '') return;
-    const lowerName = name.toLowerCase();
-    let rubrik = 'Sonstiges';
-    for (const [catName, products] of Object.entries(categories)) {
-      if (products.includes(lowerName)) {
-        rubrik = catName;
-        break;
-      }
-    }
-    if (!liste.some(item => item.name.toLowerCase() === lowerName)) {
-      setListe(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          name,
-          gekauft: false,
-          rubrik,
-          menge: 1,         // Standardwert 1
-          einheit: 'Stück'
-        }
-      ]);
-    }    
-    setSuche('');
-  }, [liste]);
-
-  const toggleGekauft = useCallback((id) => {
-    setListe(prev =>
-      prev.map(item => {
-        if (item.id === id) {
-          const updatedItem = { ...item, gekauft: !item.gekauft };
-          if (updatedItem.gekauft) {
-            setUndoItem(updatedItem);
-            setShowUndoBanner(true);
-          }
-          return updatedItem;
-        }
-        return item;
-      })
-    );
-  }, []);
-
-  const undoPurchase = useCallback(() => {
-    if (!undoItem) return;
-    setListe(prev =>
-      prev.map(item => (item.id === undoItem.id ? { ...item, gekauft: false } : item))
-    );
-    setUndoItem(null);
-    setShowUndoBanner(false);
-  }, [undoItem]);
-
-  useEffect(() => {
-    if (showUndoBanner) {
-      const timer = setTimeout(() => {
-        setShowUndoBanner(false);
-        setUndoItem(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [showUndoBanner]);
-
+  // --- Berechnete Werte ---
   const allProducts = useMemo(() => Object.values(categories).flat(), []);
-
   const vorgeschlageneProdukte = useMemo(() => {
+    if (suche.trim() === '') return [];
+    const suchbegriffLower = suche.toLowerCase();
     return allProducts.filter(p =>
-      p.startsWith(suche.toLowerCase()) &&
+      p.startsWith(suchbegriffLower) &&
       !liste.some(item => item.name.toLowerCase() === p)
     );
   }, [suche, allProducts, liste]);
 
-  const sections = useMemo(() => {
-    const purchased = liste.filter(item => item.gekauft);
-    const notPurchased = liste.filter(item => !item.gekauft);
-    const grouped = notPurchased.reduce((acc, product) => {
-      if (!acc[product.rubrik]) acc[product.rubrik] = [];
-      acc[product.rubrik].push(product);
-      return acc;
-    }, {});
-    let sec = Object.keys(grouped).map(catName => ({
-      title: catName,
-      data: grouped[catName]
-    }));
-    sec.sort((a, b) => a.title.localeCompare(b.title));
-    if (purchased.length > 0) {
-      sec.push({ title: 'GEKAUFTE PRODUKTE', data: purchased });
-    }
-    return sec;
-  }, [liste]);
+  // --- Callback-Handler ---
+  // handleSaveMenge aktualisiert nur noch bestehende Items und setzt Flag
+  const handleSaveMenge = (itemFromModal) => {
+    const itemToUpdate = { ...itemFromModal, mengeWurdeGesetzt: true };
+    console.log("handleSaveMenge (reverted) - Updating item:", JSON.stringify(itemToUpdate));
+    updateProduct(itemToUpdate);
+    closeMengeModal();
+  };
 
-  const renderSectionHeader = useCallback(({ section }) => (
-    <View>
-      <View style={styles.separator} />
-      <View style={styles.sectionHeaderContainer}>
-        <Text style={styles.sectionHeaderText}>{section.title}</Text>
-      </View>
-      <View style={styles.separator} />
-    </View>
-  ), [styles]);
+  // handleImportIngredients bleibt gleich
+  const handleImportIngredients = (ingredientNames) => {
+    ingredientNames.forEach(name => addProduct(name)); // Nutzt einfachen addProduct
+    closeRecipeModal();
+  };
 
+  // --- Rendering ---
   return (
     <View style={styles.container}>
       <Drawer menuOpen={menuOpen} toggleMenu={toggleMenu} slideAnim={slideAnim} />
-      <Header listName={listName} toggleMenu={toggleMenu} suche={suche} setSuche={setSuche} onOpenRecipeModal={() => setRecipeModalVisible(true)} />
+      <Header
+        listName={listName}
+        toggleMenu={toggleMenu}
+        suche={suche}
+        setSuche={setSuche} // Übergibt setSuche direkt
+        onOpenRecipeModal={openRecipeModal}
+        // Keine Suggestion-Handler mehr übergeben
+      />
 
-      {/* Hauptinhalt: Je nach ausgewähltem Tab */}
-      {selectedTab === 'einkaufsliste' ? (
-        suche !== '' ? (
-          <View style={{ flex: 1 }}>
-            <SectionList
-              sections={[{ title: 'Einkaufsvorschläge', data: vorgeschlageneProdukte }]}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => hinzufuegen(item)}>
-                  <View style={styles.itemRow}>
-                    <MaterialCommunityIcons
-                      name={iconMapping[item] || 'cart-outline'}
-                      size={24}
-                      color="#f8b107"
-                      style={styles.iconLeft}
-                    />
-                    <Text style={styles.itemText}>
-                      {typeof item === 'string' ? item : item.name} – {typeof item === 'string' ? '1' : item.menge} {typeof item === 'string' ? 'Stück' : item.einheit}
-                    </Text>
-                    {typeof item !== 'string' && (
-                      <TouchableOpacity onPress={() => handleOpenMengeModal(item)}>
-                        <MaterialCommunityIcons
-                          name="plus-circle-outline"
-                          size={24}
-                          color="#f8b107"
-                          style={styles.iconRight}
-                        />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              
-              )}
-              renderSectionHeader={({ section }) => (
-                <View style={styles.sectionHeaderContainer}>
-                  <Text style={styles.sectionHeaderText}>{section.title}</Text>
-                </View>
-              )}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
-          </View>
+      {/* === KORRIGIERTER contentContainer Block === */}
+      <View style={styles.contentContainer}>
+        {selectedTab === 'einkaufsliste' ? (
+          // === Fall 1: Tab ist "einkaufsliste" ===
+          <>
+            {suche.trim() !== '' ? (
+              // Fall 1a: Suche ist aktiv -> Zeige Vorschläge
+              <SuggestionList
+                suggestions={vorgeschlageneProdukte}
+                // Übergibt addProduct; leert Suche nach Klick
+                onAddProduct={(name) => {
+                   addProduct(name);
+                   setSuche('');
+                }}
+                iconMapping={iconMapping}
+              />
+            ) : (
+              // Fall 1b: Suche ist inaktiv -> Zeige Produktliste
+              <ProductList
+                 sections={sections}
+                 onTogglePurchased={togglePurchased}
+                 iconMapping={iconMapping}
+                 onOpenMengeModal={openMengeModal} // Für Pfeil in Hauptliste
+              />
+            )}
+          </> // Ende Fragment für Einkaufsliste-Inhalt
+
         ) : (
-          <View style={{ flex: 1 }}>
-            <ProductList
-              sections={sections}
-              toggleGekauft={toggleGekauft}
-              iconMapping={iconMapping}
-              styles={styles}
-              renderSectionHeader={renderSectionHeader}
-            />
+          // === Fall 2: Tab ist NICHT "einkaufsliste" (also "vorrat") ===
+          <View style={styles.centered}>
+            <MaterialCommunityIcons name="store-outline" size={50} color={colors.textSecondary} />{/* Farbe angepasst */}
+            <Text style={{ color: colors.text, fontSize: 18, marginTop: 10 }}>{/* Farbe angepasst */}
+              Vorrat kommt bald!
+            </Text>
           </View>
-        )
-      ) : (
-        // Vorrat-Ansicht (Platzhalter, kann später angepasst werden)
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>Vorrat kommt bald!</Text>
-        </View>
-      )}
-
-      {showUndoBanner && undoItem && (
-        <View style={styles.snackbarContainer}>
-          <Text style={styles.snackbarText}>{undoItem.name} wurde eingekauft.</Text>
-          <TouchableOpacity onPress={undoPurchase}>
-            <Text style={styles.snackbarAction}>Rückgängig</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Bottom Bar für Tab-Navigation */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.tabButton} onPress={() => setSelectedTab('einkaufsliste')}>
-          <Text style={[styles.tabText, selectedTab === 'einkaufsliste' && styles.tabTextActive]}>Einkaufsliste</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabButton} onPress={() => setSelectedTab('vorrat')}>
-          <Text style={[styles.tabText, selectedTab === 'vorrat' && styles.tabTextActive]}>Vorrat</Text>
-        </TouchableOpacity>
+        )}
       </View>
+      {/* === Ende KORRIGIERTER contentContainer Block === */}
 
-      
-      {/* Rendere MengeModal, falls aktiv */}
-      {showMengeModal && selectedItem && (
-        <MengeModal 
-          visible={showMengeModal}
-          onClose={handleCloseMengeModal}
-          onSave={handleSaveMenge}
-          item={selectedItem}
-        />
-      )}
-
-      <RecipeImportModal
-          visible={recipeModalVisible}
-          onClose={() => setRecipeModalVisible(false)}
-          onImport={(ingredients) => {
-            setListe((prev) => [...prev, ...ingredients]);
-            setRecipeModalVisible(false);
-      }}
-/>
+      <UndoBanner // Bleibt
+        isVisible={showUndoBanner}
+        item={undoItem}
+        onUndo={undoPurchase}
+      />
+      <BottomTabBar // Bleibt
+        selectedTab={selectedTab}
+        onSelectTab={setSelectedTab}
+      />
+      {/* MengeModal bleibt für Bearbeitung */}
+      {showMengeModal && selectedItemForModal && (
+         <MengeModal
+           visible={showMengeModal}
+           onClose={closeMengeModal}
+           onSave={handleSaveMenge} // Nutzt vereinfachte Version
+           item={selectedItemForModal}
+         />
+       )}
+       {/* RecipeImportModal bleibt */}
+       {recipeModalVisible && (
+          <RecipeImportModal
+            visible={recipeModalVisible}
+            onClose={closeRecipeModal}
+            onImport={handleImportIngredients}
+          />
+       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#000', paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: '#333' },
-  sectionHeaderText: { fontSize: 14, fontWeight: '300', color: '#D3D3D3' },
-
-  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#111' },
-  itemLeft: { flexDirection: 'row', alignItems: 'center', },
-  itemRight: { marginLeft: 'auto'},
-  iconLeft: { marginRight: 15, color: '#D3D3D3' },
-  iconRight: { marginLeft: 'auto' },
-  itemText: { marginRight: 'auto', fontSize: 16, color: '#D3D3D3' },
-  amount: { marginLeft: 8, fontSize: 14, color: '#888', },
-  itemTextGekauft: { textDecorationLine: 'line-through', color: '#888' },
-
-  separator: { height: 1, backgroundColor: '#333' },
-
-  snackbarContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, zIndex: 999 },
-  snackbarText: { color: '#333', fontSize: 16 },
-  snackbarAction: { color: '#f8b107', fontWeight: 'bold', marginLeft: 16 },
-
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#111', borderTopWidth: 1, borderTopColor: '#ccc', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 10, zIndex: 1000 },
-  
-  tabButton: { padding: 10 },
-  tabText: { color: '#888', fontSize: 16 },
-  tabTextActive: { color: '#f8b107', fontWeight: 'bold' },
-  deleteButton: { backgroundColor: 'red', justifyContent: 'center', alignItems: 'center', width: 70, height: '100%', borderTopRightRadius: 8, borderBottomRightRadius: 8, },
-});

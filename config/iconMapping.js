@@ -2,7 +2,7 @@ export const iconMapping = {
     apfel: 'apple',
     avocado: 'fruit-avocado',
     banane: 'fruit-cherries',
-    tomate: 'fruit-tomato',
+    tomate: 'food-variant',
     käse: 'cheese',
     butter: 'butterfly',
     zwiebel: 'food-apple',
