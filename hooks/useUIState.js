@@ -3,13 +3,14 @@ import { useState, useRef, useCallback } from 'react';
 import { Animated } from 'react-native';
 
 export function useUIState(initialTab = 'einkaufsliste') {
-  const [suche, setSuche] = useState(''); // Original setSuche
+  const [suche, _setSuche] = useState('');
   const [listName] = useState('Meine Einkaufsliste');
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState(initialTab);
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [showMengeModal, setShowMengeModal] = useState(false);
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
+  const [selectedSuggestionName, setSelectedSuggestionName] = useState(null);
 
   // Drawer Animation
   const drawerWidth = 250;
@@ -23,7 +24,18 @@ export function useUIState(initialTab = 'einkaufsliste') {
     if (toValue === 0) setMenuOpen(true);
   }, [menuOpen, slideAnim]);
 
-  // Interne Handler für Modals
+  // === KORREKT: Wrapper für setSuche ===
+  // === NEU: Wrapper Funktion für setSuche ===
+  const setSuche = useCallback((value) => {
+    // LOG 3: Wird die State-Update-Funktion aufgerufen?
+    console.log('useUIState: setSuche called with:', value);
+    _setSuche(value); // Rufe den originalen Setter auf
+}, []);
+
+  const handleSetSuche = useCallback((text) => {
+      setSuche(text);
+      setSelectedSuggestionName(null); 
+  }, []); 
   const handleOpenMengeModal = useCallback((item) => {
     setSelectedItemForModal(item);
     setShowMengeModal(true);
@@ -32,13 +44,22 @@ export function useUIState(initialTab = 'einkaufsliste') {
     setShowMengeModal(false);
     setSelectedItemForModal(null);
   }, []);
-  const handleOpenRecipeModal = useCallback(() => { setRecipeModalVisible(true); }, []);
-  const handleCloseRecipeModal = useCallback(() => { setRecipeModalVisible(false); }, []);
+  const handleOpenRecipeModal = useCallback(() => {
+    setRecipeModalVisible(true);
+  }, []);
+  const handleCloseRecipeModal = useCallback(() => {
+    setRecipeModalVisible(false);
+  }, []);
+  const handleSelectSuggestion = useCallback((name) => {
+      setSelectedSuggestionName(name);
+  }, []);
 
-  // Return-Block (vereinfacht)
+
+  // === KORREKTER Return-Block mit handleSetSuche etc. ===
   return {
     suche,
-    setSuche, // setSuche direkt zurückgeben
+    // handleSetSuche, 
+    setSuche: setSuche,
     listName,
     menuOpen,
     toggleMenu,
@@ -46,11 +67,13 @@ export function useUIState(initialTab = 'einkaufsliste') {
     selectedTab,
     setSelectedTab,
     recipeModalVisible,
-    openRecipeModal: handleOpenRecipeModal,
-    closeRecipeModal: handleCloseRecipeModal,
+    openRecipeModal: handleOpenRecipeModal,   // Umbenannt
+    closeRecipeModal: handleCloseRecipeModal, // Umbenann
     showMengeModal,
     selectedItemForModal,
-    openMengeModal: handleOpenMengeModal,
-    closeMengeModal: handleCloseMengeModal,
+    openMengeModal: handleOpenMengeModal,     // Umbenannt
+    closeMengeModal: handleCloseMengeModal,   // Umbenannt
+    selectedSuggestionName,                  // Neu
+    handleSelectSuggestion,                  // Neu
   };
 }

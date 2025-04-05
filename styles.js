@@ -94,6 +94,12 @@ export const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: colors.textGekauft,
   },
+  itemNote: {
+    fontSize: 12, 
+    color: colors.textSecondary, 
+    flexShrink: 1, 
+    marginTop: 2, 
+  },
   amount: {
     marginLeft: 8,
     fontSize: 14,

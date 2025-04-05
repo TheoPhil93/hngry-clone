@@ -1,10 +1,12 @@
 // App.js
-import React, { useMemo } from 'react';
-// Stelle sicher, dass nur benötigte Komponenten importiert werden
+import React, { useMemo, useCallback } from 'react'; // useCallback hinzugefügt
 import { View, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useUIState } from './hooks/useUIState'; // Stellt sicher, dass diese Datei auch die vereinfachte Version ist
-import { useShoppingList } from './hooks/useShoppingList'; // Stellt sicher, dass addProduct nur Namen nimmt
+
+// Importiere Hooks und Utils
+import { useUIState } from './hooks/useUIState'; // Benötigt die *einfache* Version ohne Suggestion-State
+import { useShoppingList } from './hooks/useShoppingList'; // Benötigt die Version mit addProduct, die Objekte kann!
+import { parseIngredient } from './utils/ingredientParser'; // Stellt sicher, dass dies die verbesserte Version ist
 
 // Importiere Komponenten
 import Header from './components/Header';
@@ -19,49 +21,111 @@ import UndoBanner from './components/UndoBanner';
 // Importiere Konfiguration und Styles
 import { categories } from './config/categories';
 import { iconMapping } from './config/iconMapping';
-import { styles, colors } from './styles'; // colors für Vorrat-Text importieren (optional)
+import { styles, colors } from './styles'; // colors für Vorrat/Imports
 
 export default function App() {
-  // Vereinfachte Destrukturierung aus useUIState (ohne Suggestion-Logik)
+
+  // === Hooks ===
+  // Vereinfachte Destrukturierung aus useUIState (passend zum einfachen Workflow)
   const {
-    suche, setSuche,
+    suche, setSuche, // setSuche direkt holen
     listName, menuOpen, toggleMenu, slideAnim,
     selectedTab, setSelectedTab, recipeModalVisible, openRecipeModal,
     closeRecipeModal, showMengeModal, selectedItemForModal,
     openMengeModal, closeMengeModal,
   } = useUIState('einkaufsliste');
 
-  // useShoppingList mit vereinfachtem addProduct
+  // useShoppingList (addProduct muss Objekte verarbeiten können!)
   const {
     liste, addProduct, togglePurchased, updateProduct, undoItem,
     showUndoBanner, undoPurchase, sections,
   } = useShoppingList([]);
 
-  // --- Berechnete Werte ---
+  // === Berechnete Werte ===
   const allProducts = useMemo(() => Object.values(categories).flat(), []);
   const vorgeschlageneProdukte = useMemo(() => {
     if (suche.trim() === '') return [];
     const suchbegriffLower = suche.toLowerCase();
     return allProducts.filter(p =>
-      p.startsWith(suchbegriffLower) &&
-      !liste.some(item => item.name.toLowerCase() === p)
+      (typeof p === 'string' && p.startsWith(suchbegriffLower)) &&
+      !liste.some(item => {
+          if (!item || typeof item.name !== 'string') {
+              console.error('!!! Fehlerhaftes Item in Liste gefunden (bei Vorschlägen):', JSON.stringify(item));
+              return true; // Überspringen, um Absturz zu vermeiden
+          }
+          return item.name?.toLowerCase() === p.toLowerCase(); // p ist hier sicher ein String
+      })
     );
   }, [suche, allProducts, liste]);
 
-  // --- Callback-Handler ---
-  // handleSaveMenge aktualisiert nur noch bestehende Items und setzt Flag
-  const handleSaveMenge = (itemFromModal) => {
+  // === Handler-Funktionen ===
+
+  // Für den einfachen Workflow ("Tipp fügt direkt hinzu"):
+  const handleAddSuggestion = useCallback((name) => {
+    addProduct(name); // Ruft addProduct mit String auf (setzt Defaults, Flag false)
+    setSuche('');     // Leert Suche direkt
+  }, [addProduct, setSuche]);
+
+  // Für Mengen-Modal (aktualisiert immer und setzt Flag)
+  const handleSaveMenge = useCallback((itemFromModal) => {
     const itemToUpdate = { ...itemFromModal, mengeWurdeGesetzt: true };
-    console.log("handleSaveMenge (reverted) - Updating item:", JSON.stringify(itemToUpdate));
+    console.log("handleSaveMenge - Updating item:", JSON.stringify(itemToUpdate));
     updateProduct(itemToUpdate);
     closeMengeModal();
-  };
+  }, [updateProduct, closeMengeModal]);
 
-  // handleImportIngredients bleibt gleich
-  const handleImportIngredients = (ingredientNames) => {
-    ingredientNames.forEach(name => addProduct(name)); // Nutzt einfachen addProduct
+  // Für Rezeptimport (nutzt parseIngredient und add/update mit Objekten)
+  const handleImportIngredients = useCallback((ingredientStrings) => {
+    console.log("Importing ingredients:", ingredientStrings);
+    const itemsToAdd = [];
+    const itemsToUpdate = [];
+
+    for (const ingredientStr of ingredientStrings) {
+      const parsed = parseIngredient(ingredientStr); // Parser verwenden
+
+      if (parsed) {
+        console.log("Parsed:", parsed);
+        const existingItemIndex = liste.findIndex(item => item.name.toLowerCase() === parsed.name.toLowerCase());
+
+        if (existingItemIndex > -1) {
+          // Item existiert -> Update vorbereiten
+          const existingItem = liste[existingItemIndex];
+          console.log("Item exists, preparing update for:", existingItem.name);
+          const itemForUpdate = {
+            ...existingItem,
+            menge: parsed.menge, // Neue Menge/Einheit/Notiz
+            einheit: parsed.einheit,
+            note: parsed.note,
+            mengeWurdeGesetzt: true, // Flag setzen
+          };
+          itemsToUpdate.push(itemForUpdate);
+        } else {
+          // Item ist neu -> Hinzufügen vorbereiten
+          console.log("Item is new, preparing add for:", parsed.name);
+           // Objekt für addProduct erstellen
+          const itemForAdd = {
+            name: parsed.name,
+            menge: parsed.menge,
+            einheit: parsed.einheit,
+            note: parsed.note,
+            // WICHTIG: mengeWurdeGesetzt wird von addProduct (Objekt-Fall) auf true gesetzt!
+          };
+          itemsToAdd.push(itemForAdd);
+        }
+      } else {
+        console.warn("Could not parse ingredient string:", ingredientStr);
+      }
+    }
+
+    // Updates und Adds ausführen
+    console.log("Items to update:", itemsToUpdate);
+    console.log("Items to add:", itemsToAdd);
+    itemsToUpdate.forEach(item => updateProduct(item)); // Update ausführen
+    // WICHTIG: addProduct muss das Objekt verarbeiten können!
+    itemsToAdd.forEach(item => addProduct(item));     // Add mit Objekt ausführen
+
     closeRecipeModal();
-  };
+  }, [liste, addProduct, updateProduct, closeRecipeModal]);
 
   // --- Rendering ---
   return (
@@ -76,20 +140,16 @@ export default function App() {
         // Keine Suggestion-Handler mehr übergeben
       />
 
-      {/* === KORRIGIERTER contentContainer Block === */}
+      {/* KORREKTER Conditional Block für Tabs */}
       <View style={styles.contentContainer}>
         {selectedTab === 'einkaufsliste' ? (
-          // === Fall 1: Tab ist "einkaufsliste" ===
+          // Fall 1: Tab ist "einkaufsliste"
           <>
             {suche.trim() !== '' ? (
               // Fall 1a: Suche ist aktiv -> Zeige Vorschläge
               <SuggestionList
                 suggestions={vorgeschlageneProdukte}
-                // Übergibt addProduct; leert Suche nach Klick
-                onAddProduct={(name) => {
-                   addProduct(name);
-                   setSuche('');
-                }}
+                onAddProduct={handleAddSuggestion} // Handler für direkten Add
                 iconMapping={iconMapping}
               />
             ) : (
@@ -101,19 +161,19 @@ export default function App() {
                  onOpenMengeModal={openMengeModal} // Für Pfeil in Hauptliste
               />
             )}
-          </> // Ende Fragment für Einkaufsliste-Inhalt
+          </> // Ende Fragment Einkaufsliste
 
         ) : (
-          // === Fall 2: Tab ist NICHT "einkaufsliste" (also "vorrat") ===
+          // Fall 2: Tab ist "vorrat"
           <View style={styles.centered}>
-            <MaterialCommunityIcons name="store-outline" size={50} color={colors.textSecondary} />{/* Farbe angepasst */}
-            <Text style={{ color: colors.text, fontSize: 18, marginTop: 10 }}>{/* Farbe angepasst */}
+            <MaterialCommunityIcons name="store-outline" size={50} color={colors.textSecondary} />
+            <Text style={{ color: colors.text, fontSize: 18, marginTop: 10 }}>
               Vorrat kommt bald!
             </Text>
           </View>
         )}
       </View>
-      {/* === Ende KORRIGIERTER contentContainer Block === */}
+      {/* Ende Conditional Block */}
 
       <UndoBanner // Bleibt
         isVisible={showUndoBanner}
@@ -124,12 +184,12 @@ export default function App() {
         selectedTab={selectedTab}
         onSelectTab={setSelectedTab}
       />
-      {/* MengeModal bleibt für Bearbeitung */}
+      {/* MengeModal bleibt für Bearbeitung über ProductList */}
       {showMengeModal && selectedItemForModal && (
          <MengeModal
            visible={showMengeModal}
            onClose={closeMengeModal}
-           onSave={handleSaveMenge} // Nutzt vereinfachte Version
+           onSave={handleSaveMenge} // Nutzt korrekte Version
            item={selectedItemForModal}
          />
        )}
@@ -138,9 +198,9 @@ export default function App() {
           <RecipeImportModal
             visible={recipeModalVisible}
             onClose={closeRecipeModal}
-            onImport={handleImportIngredients}
+            onImport={handleImportIngredients} // Nutzt korrekte Version
           />
        )}
     </View>
   );
-}
+} // Ende der App-Komponente

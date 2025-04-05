@@ -3,7 +3,10 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function Header({ listName, toggleMenu, suche, setSuche, onOpenRecipeModal }) {
+export default function Header({ listName, toggleMenu, suche, setSuche, onOpenRecipeModal, onOpenImagePicker }) {
+
+  console.log('Header rendering, props.suche:', suche);
+  
   return (
     <View style={{ backgroundColor: '#000' }}>
       {/* Obere Zeile: Menü, Titel, Rezept-Button */}
@@ -12,9 +15,26 @@ export default function Header({ listName, toggleMenu, suche, setSuche, onOpenRe
           <MaterialIcons name="menu" size={28} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>{listName}</Text>
-        <Pressable onPress={onOpenRecipeModal}>
-          <MaterialIcons name="library-add" size={28} color="#fff" />
-        </Pressable>
+
+        {/* Wrapper für rechte Buttons */}
+        <View style={{ flexDirection: 'row' }}>
+          {/* Button für Bildauswahl */}
+          <Pressable 
+            onPress={onOpenImagePicker} 
+            hitSlop={10} 
+            style={{ marginRight: 15 }}
+          >
+            <MaterialCommunityIcons name="image-plus" size={28} color="#fff" />
+          </Pressable>
+
+          {/* Button für Rezeptimport */}
+          <Pressable 
+            onPress={onOpenRecipeModal} 
+            hitSlop={10}
+          >
+            <MaterialIcons name="library-add" size={28} color="#fff" />
+          </Pressable>
+        </View>
       </View>
 
       {/* Suchleiste */}
@@ -30,8 +50,8 @@ export default function Header({ listName, toggleMenu, suche, setSuche, onOpenRe
           placeholderTextColor="#888"
           value={suche}
           onChangeText={setSuche}
-          clearButtonMode="while-editing" // Optional: Löschen-Button hinzufügen (iOS)
-          returnKeyType="search" // Optional: Tastatur-Button
+          clearButtonMode="while-editing"
+          returnKeyType="search"
         />
       </View>
     </View>
@@ -75,5 +95,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10, // Angepasst
     fontSize: 16, // Größer
     color: '#000' // Dunkler Text
-  }
+  },
 });
